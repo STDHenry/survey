@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Application Hack Survey</title>
+    <!-- Liên kết tới file main.css tối giản Trắng - Đen của bạn -->
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+
+    <div class="survey-container">
+        <h2>Application Hack Survey</h2>
+        
+        <form id="megaSurveyForm">
+            <!-- Nhập tên bắt buộc (Không hỏi tuổi hay thông tin khác) -->
+            <div class="question-card" style="border: none;">
+                <label class="question-title">Họ và Tên người tham gia thử thách:</label>
+                <input type="text" id="username" class="input-field" placeholder="Nhập tên của bạn..." required>
+            </div>
+
+            <!-- Vùng chứa các câu hỏi sẽ tự động sinh ra -->
+            <div id="dynamic-questions-area"></div>
+
+            <button type="submit" class="submit-btn">Nộp bài thử thách</button>
+        </form>
+    </div>
+
+    <script>
+        // Đường dẫn API để lưu vào Google Sheets (Sử dụng SheetDB.io miễn phí)
+        // Khi bạn tạo xong tài khoản SheetDB, hãy thay link API của bạn vào đây
+        const GOOGLE_SHEET_API = "https://sheetdb.io";
+
+        // MẢNG DỮ LIỆU CÂU HỎI TẬP TRUNG (Hiện tại là 5 câu của Chủ đề 1: Lịch sử)
+        const surveyData = [
+            {
+                id: 1,
+                title: "1. Theo bạn, Quang Trung và Nguyễn Huệ có mối quan hệ gì với nhau?",
+                score: 5, // Câu lớn 5 điểm
+                options: [
+                    { value: "A", text: "↳ Là hai anh em ruột" },
+                    { value: "B", text: "↳ Là cùng một người!" }, // Đáp án bẫy mở ra 3 câu phụ
+                    { value: "C", text: "↳ Là hai người bạn thân cùng chí hướng" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "1_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Nếu là cùng một người, tại sao Hà Nội lại có cả đường Quang Trung lẫn đường Nguyễn Huệ giao nhau?", type: "text", placeholder: "Gõ câu trả lời hack não của bạn..." },
+                    { id: "1_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Vậy ai là người đã trực tiếp chỉ huy trận Ngọc Hồi - Đống Đa đại phá quân Thanh?", type: "radio", options: ["Vua Quang Trung", "Bắc Bình Vương Nguyễn Huệ", "Cả hai ông cùng xuất hiện"] },
+                    { id: "1_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Bạn đánh giá thế nào về câu hỏi khó đỡ này (1-5 sao)?", type: "number", min: 1, max: 5 }
+                ]
+            },
+            {
+                id: 2,
+                title: "2. Miền Nam Việt Nam được hoàn toàn giải phóng vào năm nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Năm 1945" },
+                    { value: "B", text: "↳ Năm 1975" }, // Đáp án bẫy mở ra 3 câu phụ
+                    { value: "C", text: "↳ Năm 1954" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "2_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Sự kiện cắm cờ trên dinh Độc Lập diễn ra vào ngày tháng nào?", type: "text", placeholder: "Ví dụ: Ngày 30 tháng 4" },
+                    { id: "2_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Ngày giải phóng miền Nam rơi vào thứ mấy trong tuần của năm 1975?", type: "radio", options: ["Thứ Tư", "Thứ Sáu", "Chủ Nhật"] },
+                    { id: "2_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Bạn có được nghỉ bù vào ngày này nếu nó trùng ngày cuối tuần không?", type: "radio", options: ["Có chứ, luật lao động quy định rồi", "Không, đi làm bình thường kiếm thêm thu nhập"] }
+                ]
+            },
+            {
+                id: 3,
+                title: "3. Giáo sư Trần Đại Nghĩa lừng lẫy lịch sử Việt Nam với vai trò chính là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Nhà ngoại giao xuất chúng" },
+                    { value: "B", text: "↳ Ông vua vũ khí, chế tạo súng đạn (Bazooka, súng không giật SKZ)" }, // Đáp án bẫy mở ra 3 câu phụ
+                    { value: "C", text: "↳ Bác sĩ quân y lỗi lạc" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "3_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Vũ khí hạng nặng do ông chế tạo đã bắn thủng loại xe bọc thép nào của địch?", type: "text", placeholder: "Gõ tên loại xe..." },
+                    { id: "3_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Tên khai sinh (tên thật) của Giáo sư Trần Đại Nghĩa là gì?", type: "radio", options: ["Phạm Quang Lễ", "Trần Đại Nghĩa luôn", "Nguyễn Văn Huệ"] },
+                    { id: "3_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số năm ông được phong danh hiệu Anh hùng lao động đợt đầu tiên (1952):", type: "number", min: 1900, max: 2026 }
+                ]
+            },
+            {
+                id: 4,
+                title: "4. Con tàu buôn mang tên Amiral Latouche Tréville đại diện cho sự kiện lịch sử vĩ đại nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Tàu chiến đầu tiên Pháp dùng để tấn công Đà Nẵng" },
+                    { value: "B", text: "↳ Nơi Bác Hồ (Văn Ba) ra đi tìm đường cứu nước năm 1911 tại bến Nhà Rồng" }, // Đáp án bẫy mở ra 3 câu phụ
+                    { value: "C", text: "↳ Con tàu chở phái đoàn ký kết hiệp định Giơ-ne-vơ" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "4_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Trên con tàu viễn dương này, Bác Hồ đã làm công việc gì để kiếm sống?", type: "text", placeholder: "Ví dụ: Phụ bếp, bồi bàn..." },
+                    { id: "4_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Chuyến hành trình lịch sử của con tàu xuất phát từ cảng nào?", type: "radio", options: ["Cảng Sài Gòn (Bến Nhà Rồng)", "Cảng Hải Phòng", "Cảng Đà Nẵng"] },
+                    { id: "4_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Bác Hồ đã đi qua bao nhiêu đại dương trong suốt hành trình tìm đường cứu nước?", type: "number", min: 1, max: 10 }
+                ]
+            },
+            {
+                id: 5,
+                title: "5. Thời kỳ Bao Cấp (phân phối nhu yếu phẩm qua tem phiếu) tại Việt Nam chính thức chấm dứt vào năm nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Năm 1954" },
+                    { value: "B", text: "↳ Năm 1986 (Đại hội Đổi Mới xóa bỏ bao cấp)" }, // Đáp án bẫy mở ra 3 câu phụ
+                    { value: "C", text: "↳ Năm 2000" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "5_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Thứ quý giá nhất để xếp hàng đổi lấy gạo, thịt thời bấy giờ là gì?", type: "text", placeholder: "Ví dụ: Tem phiếu, sổ gạo..." },
+                    { id: "5_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Đại hội Đảng lần thứ mấy đã quyết định xóa bỏ hoàn toàn thời kỳ bao cấp để chuyển sang kinh tế thị trường?", type: "radio", options: ["Đại hội VI", "Đại hội V", "Đại hội VII"] },
+                    { id: "5_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập số 0 vào ô này để xác nhận bạn hiểu về thời kỳ tem phiếu lịch sử:", type: "number", min: 0, max: 0 }
+                ]
+            },
+            {
+                id: 6,
+                title: "6. Thuật ngữ IoT trong thế giới công nghệ thực chất là viết tắt của cái quái gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Internet of Trains (Mạng lưới tàu hỏa kỹ thuật số)" },
+                    { value: "B", text: "↳ Internet of Things (Vạn vật kết nối Internet)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Inside of Technology (Bên trong cốt lõi công nghệ)" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "6_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Thiết bị gia dụng nào trong nhà bạn thường được tích hợp IoT phổ biến nhất?", type: "text", placeholder: "Ví dụ: Tủ lạnh thông minh, điều hòa, robot hút bụi..." },
+                    { id: "6_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Các thiết bị IoT trong mô hình Smart Home kết nối với nhau chủ yếu qua loại sóng gì?", type: "radio", options: ["Wi-Fi hoặc Bluetooth", "Sóng vô tuyến AM/FM", "Tia hồng ngoại của điều khiển TV"] },
+                    { id: "6_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Theo bạn, một hệ thống nhà thông minh chạy IoT có khả năng bị hacker tấn công bảo mật không?", type: "radio", options: ["Có, mọi thiết bị kết nối mạng đều có nguy cơ", "Không bao giờ, hệ thống tường lửa của các hãng rất an toàn"] }
+                ]
+            },
+            {
+                id: 7,
+                title: "7. Sự khác biệt cốt lõi và lớn nhất giữa mạng di động thế hệ 4G và 5G là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ 5G chỉ tốn ít dung lượng pin hơn 4G chứ băng thông như nhau" },
+                    { value: "B", text: "↳ 5G sở hữu tốc độ truyền tải siêu nhanh và độ trễ phản hồi cực kỳ thấp" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Mạng 4G phát bằng sóng vô tuyến, còn 5G bắt buộc phải cắm dây cáp vật lý ngầm" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "7_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Mạng di động thế hệ tiếp theo đang được nghiên cứu sau 5G sẽ có tên gọi là gì?", type: "text", placeholder: "Ví dụ: 6G, 7G..." },
+                    { id: "7_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Độ trễ siêu thấp (gần như bằng 0) của 5G cực kỳ hữu ích cho sự phát triển của ngành nào?", type: "radio", options: ["Phẫu thuật y tế từ xa và xe tự lái thông minh", "Chỉ dùng để tải video ngắn trên mạng nhanh hơn", "Gửi tin nhắn SMS khẩn cấp"] },
+                    { id: "7_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập đúng số 5 vào ô này để xác nhận thiết bị bạn đang dùng có chip hỗ trợ 5G:", type: "number", min: 5, max: 5 }
+                ]
+            },
+            {
+                id: 8,
+                title: "8. Một bộ máy tính để bàn (PC cây) hoàn chỉnh bắt buộc phải có những bộ phận cốt lõi nào để khởi động?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Chỉ cần cắm dây màn hình và chuột vào nguồn điện là chạy được" },
+                    { value: "B", text: "↳ Mainboard, CPU, RAM, Ổ cứng lưu trữ, Bộ nguồn (PSU) và Vỏ máy" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Phải trang bị thêm cục lưu điện dự phòng UPS và bộ loa thùng" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "8_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Linh kiện phần cứng nào được mệnh danh là 'bộ não' trung tâm điều phối mọi thuật toán của máy tính?", type: "text", placeholder: "Ví dụ: CPU, RAM, ổ cứng, card đồ họa..." },
+                    { id: "8_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Khi tắt nguồn máy tính đột ngột, toàn bộ dữ liệu đang chạy trên linh kiện nào sẽ bị xóa sạch hoàn toàn?", type: "radio", options: ["Bộ nhớ truy cập ngẫu nhiên RAM", "Ổ cứng lưu trữ trạng thái rắn SSD/HDD", "Thẻ nhớ di động cắm ngoài"] },
+                    { id: "8_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nếu bật máy tính cây quạt chip vẫn quay nhưng màn hình tối đen, linh kiện nào có tỷ lệ cao bị lỏng chân cắm?", type: "radio", options: ["Thanh RAM hoặc Card màn hình (VGA)", "Bàn phím và chuột", "Dây cắm ổ điện tường"] }
+                ]
+            },
+            {
+                id: 9,
+                title: "9. Thuật ngữ API xuất hiện liên tục trong lập trình kết nối hệ thống phần mềm là viết tắt của cụm từ nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Apple Price Index (Bảng chỉ số cập nhật giá của hãng Apple)" },
+                    { value: "B", text: "↳ Application Programming Interface (Giao diện lập trình ứng dụng)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Automated Python Integration (Cơ chế tích hợp Python tự động)" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "9_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Trong dự án trước, chúng ta dùng thư viện nào của Python để tương tác dữ liệu thay thế API?", type: "text", placeholder: "Ví dụ: openpyxl, docx..." },
+                    { id: "9_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): API đóng vai trò quyết định gì giữa các nền tảng phần mềm độc lập khác nhau?", type: "radio", options: ["Làm cầu nối trung gian để các ứng dụng truyền dữ liệu và nói chuyện với nhau", "Xây dựng giao diện đồ họa hoàn chỉnh cho người dùng click", "Kích hoạt lá chắn diệt virus ngầm"] },
+                    { id: "9_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Định dạng cấu trúc gói dữ liệu phổ biến, gọn nhẹ và thông dụng nhất đi qua API ngày nay là gì?", type: "radio", options: ["JSON", "Bảng tính Excel .xlsx", "Tệp văn bản thuần .txt"] }
+                ]
+            },
+            {
+                id: 10,
+                title: "10. Cỗ máy tính toán cơ học cổ xưa nhất lịch sử nhân loại (hơn 2000 năm tuổi) có tên gọi chính thức là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Máy tính điện tử vạn năng ENIAC của quân đội Mỹ" },
+                    { value: "B", text: "↳ Cơ chế Antikythera (được trục vớt dưới đáy biển sâu Hy Lạp cổ đại)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Bàn tính gảy hạt bằng gỗ thủ công" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "10_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Cỗ máy cơ học Antikythera cổ đại này được người xưa chế tạo nhằm mục đích tính toán hiện tượng gì?", type: "text", placeholder: "Ví dụ: Nhật thực, nguyệt thực, chu kỳ thiên văn..." },
+                    { id: "10_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Cỗ máy tính toán lịch thiên văn này vận hành hoàn toàn dựa trên hệ thống cơ cấu nào bên dưới?", type: "radio", options: ["Hàng chục bánh răng bằng đồng liên kết tinh vi và chuẩn xác", "Vi mạch bán dẫn silicon chạy bằng pin", "Hệ thống piston áp lực hơi nước"] },
+                    { id: "10_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập chính xác số 2000 để xác nhận niên đại tương đối của cỗ máy lịch sử này:", type: "number", min: 2000, max: 2000 }
+                ]
+            }
+            ,
+            {
+                id: 11,
+                title: "11. Có một khách hàng báo mất đồ quý giá tại khu vực của bạn, quy trình xử lý tối ưu nhất là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Bảo khách tự đi mà tìm hoặc tự báo công an chứ mình không liên quan" },
+                    { value: "B", text: "↳ Trấn an khách, lập biên bản sự việc, trích xuất camera an ninh và phối hợp tìm kiếm" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Đền tiền mặt luôn cho khách tại chỗ để giữ uy tín tuyệt đối cho cửa hàng" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "11_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Nếu camera không quay tới góc mất đồ, bạn sẽ dùng mẫu câu giải thích thế nào để khách không nổi giận?", type: "text", placeholder: "Nhập câu xử lý khéo léo của bạn..." },
+                    { id: "11_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Trong quy trình vận hành, ai là người có quyền nội bộ tối cao được trích xuất dữ liệu camera an ninh?", type: "radio", options: ["Quản lý cửa hàng hoặc Đội trưởng bảo vệ", "Bất kỳ nhân viên trực ca nào", "Bản thân vị khách bị mất tài sản"] },
+                    { id: "11_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số phút tối đa bạn nên có mặt để hỗ trợ trực tiếp từ khi nhận tin báo mất đồ:", type: "number", min: 1, max: 15 }
+                ]
+            },
+            {
+                id: 12,
+                title: "12. Nếu bất ngờ phát hiện có kẻ lạ mặt đang gài thiết bị công nghệ để lấy trộm thông tin của khách hàng, bạn ứng phó như nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Lao vào bắt giữ ngay lập tức, hô hoán to lên cho cả cửa hàng chú ý" },
+                    { value: "B", text: "↳ Bí mật báo bảo vệ, giữ nguyên hiện trường, ghi nhận đặc điểm đối tượng và báo cơ quan công an" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Coi như không nhìn thấy gì để tránh rắc rối và nguy hiểm cho bản thân" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "12_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Các thiết bị gián điệp lấy cắp dữ liệu phần cứng thông dụng hiện nay thường ngụy trang dưới hình dạng gì?", type: "text", placeholder: "Ví dụ: Củ sạc điện thoại, ổ cắm điện, cúc áo, bút..." },
+                    { id: "12_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Hành vi tự ý gài thiết bị nghe lén, quay lén người khác vi phạm nghiêm trọng điều gì của pháp luật Việt Nam?", type: "radio", options: ["Vi phạm quyền bí mật đời tư và an toàn thông tin cá nhân", "Chỉ vi phạm nội quy nội bộ của cửa hàng", "Không vi phạm pháp luật nếu chưa dùng dữ liệu để tống tiền"] },
+                    { id: "12_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Bạn có nên dùng điện thoại cá nhân chụp ảnh/quay phim lại vị trí thiết bị trước khi gỡ xuống không?", type: "radio", options: ["Có, bắt buộc phải lưu bằng chứng hiện trường sạch", "Không, gỡ luôn vứt đi để bảo mật"] }
+                ]
+            },
+            {
+                id: 13,
+                title: "13. Rắc rắc rối xảy ra khi có người đột nhiên đau bụng cấp tính lúc đang dùng dịch vụ tại chỗ của bạn, quy trình xử lý là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Tự ý lấy một vài viên thuốc đau bụng kê đơn có sẵn trong tủ thuốc cá nhân cho họ uống" },
+                    { value: "B", text: "↳ Sơ cứu cơ bản, hỏi han tình trạng, gọi xe cấp cứu 115 nếu nặng và giữ lại mẫu đồ ăn/uống liên quan" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Mời họ ra khỏi khu vực cửa hàng ngay để tránh ảnh hưởng đến tâm lý khách xung quanh" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "13_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Tại sao nhân viên dịch vụ tuyệt đối không được phép tự ý cho khách hàng uống thuốc điều trị kê đơn?", type: "text", placeholder: "Lý do liên quan đến sốc thuốc, dị ứng..." },
+                    { id: "13_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Số điện thoại đầu số gọi xe cứu thương y tế khẩn cấp tại Việt Nam là bao nhiêu?", type: "radio", options: ["115", "114", "113"] },
+                    { id: "13_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số giờ tối thiểu y tế quy định cần lưu giữ lại mẫu thực phẩm để đối chiếu nếu nghi ngờ ngộ độc:", type: "number", min: 24, max: 72 }
+                ]
+            },
+            {
+                id: 14,
+                title: "14. Nếu gặp một khách hàng cố tình đưa ra những yêu cầu vô lý, hạch sách hòng vượt quá quy định của hệ thống, bạn nên giải quyết ra sao?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Tranh cãi sòng phẳng, phân định đúng sai rõ ràng với khách để bảo vệ danh dự" },
+                    { value: "B", text: "↳ Giữ thái độ bình tĩnh, lắng nghe, từ chối khéo léo dựa trên quy định và đề xuất giải pháp thay thế" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Sợ hãi đồng ý hết mọi yêu cầu vô lý của họ để tránh bị đánh giá kém" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "14_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Cụm từ 'thần chú' xoa dịu tâm lý đầu tiên bạn nên nói khi khách hàng bắt đầu nổi nóng hạch sách là gì?", type: "text", placeholder: "Ví dụ: Dạ em rất xin lỗi vì trải nghiệm chưa tốt này..." },
+                    { id: "14_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nếu khách vẫn tiếp tục làm loạn, đập phá tài sản của cửa hàng, bạn có quyền thực hiện hành động nào?", type: "radio", options: ["Yêu cầu đội bảo vệ can thiệp cưỡng chế hoặc báo công an gần nhất", "Đập lại đồ đạc cá nhân của khách để răn đe", "Im lặng chịu đựng và đứng nhìn"] },
+                    { id: "14_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Bạn có nên lập biên bản ghi nhận hành vi hạch sách có chữ ký xác nhận của các nhân chứng xung quanh không?", type: "radio", options: ["Có, rất cần thiết để làm bằng chứng báo cáo nội bộ", "Không, làm vậy sẽ gây căng thẳng thêm"] }
+                ]
+            },
+            {
+                id: 15,
+                title: "15. Khi tiếp đón và xử lý các dịch vụ ứng dụng cho một nhóm đối tượng khách hàng lớn tuổi, bạn cần ưu tiên yếu tố nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Thao tác màn hình thật nhanh, nói nhiều thuật ngữ tiếng lóng công nghệ cho sành điệu" },
+                    { value: "B", text: "↳ Kiên nhẫn, nói rõ ràng, hướng dẫn chậm rãi, dùng từ dễ hiểu và hỗ trợ thao tác thủ công" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Ngại giao tiếp mệt mỏi nên để họ tự mò mẫm các tính năng trên màn hình" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "15_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Theo bạn, rào cản sinh học lớn nhất của người cao tuổi khi tương tác với các ứng dụng di động ngày nay là gì?", type: "text", placeholder: "Ví dụ: Mắt kém, tay run, khó ghi nhớ thao tác phức tạp..." },
+                    { id: "15_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Tính năng hiển thị nào trên điện thoại thông minh nên được bật lên để giúp người già dễ đọc thông tin khảo sát?", type: "radio", options: ["Phóng to kích thước chữ (Font Size)", "Bật chế độ siêu tiết kiệm pin màn hình", "Tắt toàn bộ âm thanh thông báo"] },
+                    { id: "15_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số lần tối đa bạn sẵn sàng kiên nhẫn hướng dẫn lại một thao tác ứng dụng nếu khách lớn tuổi quên:", type: "number", min: 3, max: 99 }
+                ]
+            }
+            // VỊ TRÍ ĐỢT 4 (ỨNG PHÓ THẢM HỌA) SẼ DÁN NỐI TIẾP VÀO ĐÂY
+            ,
+            {
+                id: 16,
+                title: "16. Khi đang tắm biển mà bất ngờ nhìn thấy hiện tượng các đợt sóng biển tạo thành các ô hình vuông (sóng biển ô vuông), mức độ nguy hiểm ra sao?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Bình thường, đây chỉ là hiện tượng sóng giao nhau đẹp mắt để chụp ảnh" },
+                    { value: "B", text: "↳ Cực kỳ nguy hiểm, phải lập tức lên bờ ngay vì bên dưới ẩn chứa các dòng dòng chảy xiết nguy hiểm" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Hiện tượng này báo hiệu sắp có cá mập hoặc sinh vật biển nguy hiểm tấn công" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "16_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Theo cơ chế vật lý đại dương, hiện tượng hệ thống sóng biển vuông này được tạo ra do điều gì?", type: "text", placeholder: "Ví dụ: Hai hệ thống thời tiết hướng gió gặp nhau..." },
+                    { id: "16_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Tại sao các phương tiện tàu thuyền lớn cũng rất e ngại khi đi vào vùng biển có sóng vuông?", type: "radio", options: ["Sóng đánh từ nhiều hướng liên tục dễ làm lật tàu", "Sóng vuông làm hỏng hệ thống định vị GPS", "Sóng vuông hút chìm tàu xuống đáy biển"] },
+                    { id: "16_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số phút tối đa bạn nên thoát khỏi mặt nước từ khi nhìn thấy sóng vuông:", type: "number", min: 1, max: 5 }
+                ]
+            },
+            {
+                id: 17,
+                title: "17. Khi bạn đang đi trên đường trống ngoài trời và tự nhiên cảm thấy toàn bộ tóc trên đầu dựng đứng lên, lý do khoa học là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Do cơ thể bạn đột ngột bị trúng gió độc hoặc thay đổi thân nhiệt" },
+                    { value: "B", text: "↳ Sét sắp đánh xuống vị trí của bạn, cơ thể đang tích điện tích cực mạnh" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Do sóng từ trường của các cột phát sóng di động 5G xung quanh" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "17_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Hành động xử lý sinh tồn khẩn cấp nhất lúc tóc dựng đứng khi ở bãi đất trống là gì?", type: "text", placeholder: "Ví dụ: Ngồi xổm, thu nhỏ cơ thể, không nằm phẳng..." },
+                    { id: "17_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Vật liệu nào sau đây bạn tuyệt đối KHÔNG được chạm vào hoặc che lên người lúc này?", type: "radio", options: ["Ô dù có cán kim loại hoặc cột sắt", "Tấm bạt nhựa cao su chống nước", "Giày dép có đế bằng nhựa cách điện"] },
+                    { id: "17_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Khoảng cách an toàn tối thiểu (tính bằng mét) bạn nên tránh xa các cây cổ thụ đơn độc là bao nhiêu?", type: "number", min: 10, max: 100 }
+                ]
+            },
+            {
+                id: 18,
+                title: "18. Nếu thấy bầu trời xuất hiện ráng màu mỡ gà vàng rực, không khí oi bức, ngột ngạt, đây là điềm báo của thảm họa nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Sắp có một đợt nắng nóng kỷ lục kéo dài nhiều tuần" },
+                    { value: "B", text: "↳ Bão lớn, cuồng phong hoặc áp thấp nhiệt đới chuẩn bị đổ bộ dữ dội" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Hiện tượng ô nhiễm không khí nặng do khói bụi bụi mịn" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "18_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Câu tục ngữ dân gian nổi tiếng nào của Việt Nam đúc kết về hiện tượng ráng mỡ gà này?", type: "text", placeholder: "Gõ câu: Ráng mỡ gà thì có nhà thì giữ..." },
+                    { id: "18_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Việc cần làm ngay đối với nhà cửa khi nhìn thấy ráng mỡ gà vào buổi chiều là gì?", type: "radio", options: ["Gia cố mái tôn, chằng chống và đóng chặt toàn bộ cửa sổ", "Mở hết cửa cho thoáng mát", "Tắt toàn bộ thiết bị điện trong nhà"] },
+                    { id: "18_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hiện tượng ráng mỡ gà thường xuất hiện trước khi bão đổ bộ khoảng bao nhiêu tiếng?", type: "number", min: 12, max: 48 }
+                ]
+            },
+            {
+                id: 19,
+                title: "19. Bầu trời chuyển đen kịt, gió ù ù, lạnh đột ngột, sấm sét dày đặc và mây dông có hình bầu vú (mây Mammatus) báo hiệu trận mưa gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Mưa phùn mùa xuân kéo dài" },
+                    { value: "B", text: "↳ Mưa dông bão lốc cực đoan dữ dội, nguy cơ kèm theo mưa đá hoặc vòi rồng" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Mưa rào mùa hạ diễn ra nhanh rồi tạnh ngay" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "19_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Tại sao các đám mây dông cực đoan này lại bị kéo trĩu xuống tạo thành hình bầu vú?", type: "text", placeholder: "Ví dụ: Luồng không khí lạnh chìm xuống..." },
+                    { id: "19_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nếu đang lái xe máy ngoài đường gặp hiện tượng mây Mammatus này, bạn nên trú ẩn ở đâu an toàn nhất?", type: "radio", options: ["Dưới gầm cầu bê tông hoặc tòa nhà kiên cố", "Dưới gốc cây to bên đường", "Dưới mái hiên tôn mỏng của nhà dân"] },
+                    { id: "19_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập số 1 để xác nhận bạn sẽ không dừng xe chụp ảnh check-in khi thấy mây Mammatus nguy hiểm:", type: "number", min: 1, max: 1 }
+                ]
+            },
+            {
+                id: 20,
+                title: "20. Siêu sấm sét (Superbolt) ngoài tự nhiên có sức tàn phá khủng bố tới mức độ nào so với sét thông thường?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Chỉ kêu to hơn một chút chứ năng lượng phóng điện tương đương" },
+                    { value: "B", text: "↳ Mạnh gấp hàng trăm, hàng nghìn lần sét thường, có thể làm nóng chảy cả dòng điện ngầm" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Siêu sấm sét chỉ xuất hiện ngoài vũ trụ chứ không thể đánh xuống mặt đất" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "20_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Siêu sấm sét thường có xu hướng xuất hiện nhiều nhất ở khu vực địa lý nào (đại dương hay đất liền)?", type: "text", placeholder: "Gõ câu trả lời..." },
+                    { id: "20_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Sức mạnh của siêu sấm sét có thể phá hủy hoàn toàn hệ thống bảo vệ nào của tòa nhà cao tầng?", type: "radio", options: ["Làm quá tải hoàn toàn hệ thống kim thu lôi chống sét", "Làm vỡ cửa kính do chấn động sóng âm", "Làm hỏng hệ thống lọc nước sạch"] },
+                    { id: "20_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Siêu sấm sét chiếm khoảng bao nhiêu phần trăm trong tổng số các tia sét trên Trái Đất?", type: "number", min: 1, max: 5 }
+                ]
+            }
+            // VỊ TRÍ ĐỢT 5 (CỨU THƯƠNG) SẼ DÁN NỐI TIẾP VÀO ĐÂY VỚI DẤU PHẨY ĐẦU DÒNG
+            ,
+            {
+                id: 21,
+                title: "21. Nếu phát hiện một người đang ngồi đờ cứng bất động trong ô tô tắt máy đóng kín cửa giữa trời nắng, lý do nguy hiểm nhất là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Họ chỉ đang ngủ say hoặc tập trung xem điện thoại" },
+                    { value: "B", text: "↳ Họ đang bị sốc nhiệt cực độ, thiếu oxy và có thể tử vong trong vài phút" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Họ bị kẹt hệ thống khóa điện thông minh của xe" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "21_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Hành động khẩn cấp đầu tiên bạn cần làm ngay để cứu người trong xe lúc này là gì?", type: "text", placeholder: "Ví dụ: Tìm cách phá kính xe, đưa nạn nhân ra bóng râm..." },
+                    { id: "21_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nhiệt độ bên trong một chiếc ô tô đóng kín cửa dưới trời nắng 40 độ C có thể tăng lên bao nhiêu độ sau 1 tiếng?", type: "radio", options: ["Lên tới khoảng 60 - 70 độ C (Hiệu ứng nhà kính)", "Chỉ duy trì ở mức 45 độ C bằng bên ngoài", "Giảm lạnh đi do vỏ tôn che chắn"] },
+                    { id: "21_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số phút tối đa một đứa trẻ có thể chịu đựng trong xe đóng kín cửa vào mùa hè trước khi gặp nguy hiểm tính mạng:", type: "number", min: 5, max: 15 }
+                ]
+            },
+            {
+                id: 22,
+                title: "22. Khi một người vô tình bị bỏng bấy trầy da do nước sôi hoặc chạm vào đồ nóng, việc sơ cứu đầu tiên cần làm là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Thoa ngay kem đánh răng, mỡ trăn hoặc nước mắm lên vết bỏng để làm dịu" },
+                    { value: "B", text: "↳ Xả nước sạch mát (không dùng đá lạnh) liên tục vào vết bỏng trong 15 - 20 phút" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Băng thật chặt vết thương lại bằng gạc y tế khô" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "22_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Tại sao tuyệt đối không được chườm trực tiếp đá lạnh tinh khiết lên vết bỏng da?", type: "text", placeholder: "Lý do: Gây bỏng lạnh kèm theo tổn thương biểu bì..." },
+                    { id: "22_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nếu vết bỏng xuất hiện các bọng nước (phồng rộp), hành động nào sau đây là ĐÚNG?", type: "radio", options: ["Giữ nguyên bọng nước, tuyệt đối không chọc vỡ để tránh nhiễm trùng", "Dùng kim chọc thủng ngay cho thoát nước", "Bôi cồn sát trùng trực tiếp vào bọng nước"] },
+                    { id: "22_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số phút tối thiểu bạn cần ngâm hoặc xả nước mát vào vết bỏng để hạ nhiệt tận gốc các lớp biểu bì bên dưới:", type: "number", min: 15, max: 30 }
+                ]
+            },
+            {
+                id: 23,
+                title: "23. Khi bạn đang ngồi hoặc nằm quá lâu, đột ngột đứng phắt dậy và cảm thấy lảo đảo, chóng mặt, mắt tối sầm lại là do hiện tượng gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Do bạn bị thiếu canxi trầm trọng hoặc bị trúng gió độc" },
+                    { value: "B", text: "↳ Hạ huyết áp tư thế đứng (máu chưa kịp bơm lên não do trọng lực dồn xuống chân)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Biểu hiện của chứng rối loạn tiền đình mãn tính" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "23_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Để phòng tránh hiện tượng này, bạn nên thực hiện thao tác đứng dậy như thế nào cho đúng?", type: "text", placeholder: "Ví dụ: Đứng dậy từ từ, bám vào điểm tựa..." },
+                    { id: "23_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nhóm đối tượng nào sau đây có nguy cơ cao gặp hiện tượng hạ huyết áp tư thế đứng?", type: "radio", options: ["Người cao tuổi, người thiếu nước, hoặc người dùng thuốc huyết áp", "Người tập thể hình thường xuyên", "Trẻ em tuổi dậy thì"] },
+                    { id: "23_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số giây tối đa hiện tượng tối sầm mặt mũi này thường diễn ra rồi tự hết nếu cơ thể bình thường:", type: "number", min: 2, max: 10 }
+                ]
+            },
+            {
+                id: 24,
+                title: "24. Cách ứng phó và sơ cứu chuẩn khoa học nhất đối với một người đang bị sốc nhiệt (say nắng) nặng ngoài đường là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Cho họ uống ngay một cốc nước đá thật lạnh hoặc nước đường đặc" },
+                    { value: "B", text: "↳ Đưa vào chỗ mát, nới lỏng quần áo, chườm khăn mát vào cổ/nách/bẹn và gọi cấp cứu" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Cạo gió, giác hơi thật mạnh tại chỗ cho ra hết mồ hôi độc" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "24_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Tại sao khi người bị sốc nhiệt đang hôn mê hoặc nửa tỉnh nửa mê, bạn tuyệt đối KHÔNG được đổ nước vào miệng họ?", type: "text", placeholder: "Nguy cơ gây sặc vào đường thở, ngạt thở..." },
+                    { id: "24_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Vị trí nào trên cơ thể tập trung nhiều mạch máu lớn, cần ưu tiên đặt khăn mát để hạ thân nhiệt nhanh nhất?", type: "radio", options: ["Vùng nách, bẹn và hai bên cổ", "Lòng bàn tay và bàn chân", "Mũi và tai"] },
+                    { id: "24_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Thân nhiệt của một người bị sốc nhiệt nặng có thể vượt ngưỡng bao nhiêu độ C?", type: "number", min: 40, max: 42 }
+                ]
+            },
+            {
+                id: 25,
+                title: "25. Làm sao để phân biệt chính xác nhất giữa vết bỏng cấp độ 1 và bỏng cấp độ 2 trong y tế?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Bỏng cấp độ 1 đau hơn, còn bỏng cấp độ 2 thì không có cảm giác đau" },
+                    { value: "B", text: "↳ Bỏng cấp độ 1 chỉ đỏ ửng bề mặt da; bỏng cấp độ 2 bắt đầu xuất hiện các bọng nước phồng rộp" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Bỏng cấp độ 1 làm cháy đen da, bỏng cấp độ 2 làm chảy máu" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "25_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Vết bỏng sâu tổn thương đến tận xương, cơ và dây thần kinh, khiến da cháy đen được phân vào cấp độ mấy?", type: "text", placeholder: "Ví dụ: Cấp độ 3 hoặc cấp độ 4..." },
+                    { id: "25_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Bỏng cấp độ mấy thông thường có thể tự lành tại nhà sau vài ngày mà không để lại sẹo?", type: "radio", options: ["Bỏng cấp độ 1 (như cháy nắng nhẹ)", "Bỏng cấp độ 2", "Bỏng cấp độ 3"] },
+                    { id: "25_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số cấp độ bỏng cơ bản phổ biến được phân loại trong sách giáo khoa y tế sơ cứu:", type: "number", min: 3, max: 4 }
+                ]
+            }
+            // VỊ TRÍ ĐỢT 6 (KINH NGHIỆM ĐỜI SỐNG) SẼ DÁN NỐI TIẾP VÀO ĐÂY VỚI DẤU PHẨY ĐẦU DÒNG
+            ,
+            {
+                id: 26,
+                title: "26. Khi luộc một quả trứng gà chuẩn xác ở mốc thời gian đúng 5 phút (tính từ lúc nước sôi sùng sục), kết quả quả trứng sẽ như thế nào?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Trứng chín hoàn toàn, lòng đỏ đông cứng và chuyển sang màu hơi xám" },
+                    { value: "B", text: "↳ Trứng lòng đào siêu chuẩn (lòng trắng vừa chín tới bao bọc lòng đỏ dạng lỏng sệt)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Trứng còn sống nguyên, lòng trắng chưa hề đông tụ" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "26_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Để trứng luộc lòng đào dễ bóc vỏ nhất, ngay sau khi vớt ra bạn nên ngâm trứng vào đâu?", type: "text", placeholder: "Ví dụ: Ngâm vào tô nước đá lạnh..." },
+                    { id: "26_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Nếu muốn luộc một quả trứng chín hoàn toàn (lòng đỏ đông cứng hoàn toàn), thời gian luộc cần tối thiểu bao nhiêu phút?", type: "radio", options: ["Khoảng 10 - 12 phút", "Khoảng 3 phút", "Phải luộc trên 30 phút"] },
+                    { id: "26_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số phút luộc nếu bạn muốn ăn trứng có lòng đỏ vừa đông dẻo mềm (chưa bị khô cứng):", type: "number", min: 6, max: 7 }
+                ]
+            },
+            {
+                id: 27,
+                title: "27. Đứng dưới góc độ khoa học thực vật (Thực vật học), quả cà chua được phân loại chính xác là rau hay là quả?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Chắc chắn là Rau vì nó toàn được dùng để nấu canh hoặc xào nấu ăn cơm" },
+                    { value: "B", text: "↳ Là Quả (Trái cây) vì nó phát triển từ bầu nhụy của hoa và chứa hạt bên trong" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Là một loại củ mọc sát mặt đất" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "27_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Loại nông sản phổ biến nào khác thường bị gọi là rau nhưng thực tế khoa học cũng là quả giống cà chua?", type: "text", placeholder: "Ví dụ: Dưa chuột, cà tím, ớt chuông, bí đao..." },
+                    { id: "27_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Tại sao trong đời sống ẩm thực thương mại, người ta vẫn xếp cà chua vào nhóm rau củ?", type: "radio", options: ["Do thói quen chế biến trong các món ăn mặn thay vì ăn tráng miệng", "Do hàm lượng đường trong cà chua cao hơn táo", "Do luật pháp ép buộc phải gọi là rau"] },
+                    { id: "27_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập số 1 để xác nhận bạn đã biết kiến thức sinh học thú vị này về quả cà chua:", type: "number", min: 1, max: 1 }
+                ]
+            },
+            {
+                id: 28,
+                title: "28. Khi đi chợ hoặc vào bếp, bạn bất ngờ nhìn thấy một miếng thịt bò tươi vừa cắt ra lại động đậy, giật giật cơ liên tục, hiện tượng này nghĩa là gì?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Miếng thịt đã bị nhiễm sán hoặc ký sinh trùng độc hại chuyển động bên trong" },
+                    { value: "B", text: "↳ Thịt cực kỳ tươi ngon, hệ thần kinh của con vật vừa mổ chưa chết hẳn gây co thắt cơ cơ học" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Do người bán tẩm ướp hóa chất bảo quản độc hại gây phản ứng" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "28_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Hiện tượng các bó cơ co thắt giật giật này thường chỉ xuất hiện trong vòng bao nhiêu tiếng sau khi mổ?", type: "text", placeholder: "Ví dụ: Khoảng 1 - 2 tiếng đầu tiên..." },
+                    { id: "28_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Bạn có nên mang miếng thịt bò vừa giật cơ này đi chế biến thức ăn ngay không?", type: "radio", options: ["Nên chứ, lúc này thịt đang ở trạng thái tươi và ngọt nhất", "Không được, thịt này nhiễm ma độc phải vứt đi", "Phải ngâm nước muối 5 tiếng cho hết giật"] },
+                    { id: "28_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hiện tượng co thắt cơ này xảy ra do lượng năng lượng nào vẫn còn sót lại trong tế bào cơ (Adenosine Triphosphate)?", type: "radio", options: ["Năng lượng ATP", "Dòng điện sinh học từ não", "Lượng muối khoáng trong máu"] }
+                ]
+            },
+            {
+                id: 29,
+                title: "29. Xét về mức độ an toàn vệ sinh thực phẩm khi ăn tái (chưa chín kỹ), giữa thịt lợn và thịt bò, loại nào an toàn hơn?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Thịt lợn an toàn hơn nhiều vì lợn nuôi chuồng sạch sẽ" },
+                    { value: "B", text: "↳ Thịt bò an toàn hơn (thịt lợn tuyệt đối không được ăn tái vì nguy cơ nhiễm ấu trùng sán dây lợn hiểm họa)" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Cả hai loại đều nguy hiểm như nhau, bắt buộc phải ăn chín tái giống nhau" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "29_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Loại ký sinh trùng nguy hiểm thường trú ngụ trong thịt lợn sống có thể làm tổ trên não người tên là gì?", type: "text", placeholder: "Ví dụ: Sán dây lợn, sán xơ mít, liên cầu lợn..." },
+                    { id: "29_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Món ăn đặc sản dân dã nào làm từ thịt lợn sống hoặc tiết lợn sống có tỷ lệ gây tử vong do liên cầu khuẩn cao nhất?", type: "radio", options: ["Tiết canh hoặc nem chua sống không rõ nguồn gốc", "Thịt lợn luộc chín tới", "Giò lụa, chả quế"] },
+                    { id: "29_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Hãy nhập số 100 để khẳng định bạn sẽ luôn ăn chín uống sôi đối với các món làm từ thịt lợn:", type: "number", min: 100, max: 100 }
+                ]
+            },
+            {
+                id: 30,
+                title: "30. Để tạo nên một món ăn ngon xuất sắc, yếu tố cốt lõi nào sau đây được các đầu bếp đánh giá là không thể thiếu?",
+                score: 5,
+                options: [
+                    { value: "A", text: "↳ Phải dùng thật nhiều bột ngọt và gia vị đắt tiền để đánh lừa vị giác" },
+                    { value: "B", text: "↳ Nguyên liệu tươi ngon, kiểm soát nhiệt độ chuẩn xác và sự cân bằng vị vị giác" }, // Đáp án bẫy kích hoạt nhánh phụ
+                    { value: "C", text: "↳ Chỉ cần trình bày đĩa thức ăn thật đẹp mắt là được" }
+                ],
+                triggerValue: "B",
+                subQuestions: [
+                    { id: "2a_s1", score: 2, title: "↳ Câu hỏi phụ 1 (2 điểm): Vị giác thứ 5 do người Nhật tìm ra đại diện cho vị ngọt thịt đậm đà tự nhiên có tên là gì?", type: "text", placeholder: "Gõ chữ: Vị Umami..." },
+                    { id: "2a_s2", score: 2, title: "↳ Câu hỏi phụ 2 (2 điểm): Kỹ năng tối quan trọng nào giúp đầu bếp làm chủ được độ chín mọng của một miếng thịt áp chảo?", type: "radio", options: ["Kỹ năng kiểm soát nhiệt độ và thời gian tiếp xúc nhiệt", "Kỹ năng dùng dao thái thịt siêu mỏng", "Kỹ năng chọn loại đĩa sứ cao cấp"] },
+                    { id: "2a_s3", score: 2, title: "↳ Câu hỏi phụ 3 (2 điểm): Nhập số 5 để chấm điểm tối đa cho tầm quan trọng của nguyên liệu tươi sạch trong ẩm thực:", type: "number", min: 5, max: 5 }
+                ]
+            }
+        ];
+
+        function generateSurvey() {
+            const area = document.getElementById("dynamic-questions-area");
+            let htmlContent = "";
+
+            surveyData.forEach(q => {
+                let optionsHtml = "";
+                q.options.forEach(opt => {
+                    optionsHtml += `
+                        <div class="option-row" onclick="handleRadioClick(${q.id}, '${opt.value}', '${q.triggerValue}')">
+                            <input type="radio" name="q_${q.id}" value="${opt.value}" id="q_${q.id}_${opt.value}" onchange="handleRadioClick(${q.id}, '${opt.value}', '${q.triggerValue}')" required style="cursor:pointer;">
+                            <label for="q_${q.id}_${opt.value}" style="cursor:pointer;">${opt.text}</label>
+                        </div>
+                    `;
+                });
+
+                let subQuestionsHtml = "";
+                q.subQuestions.forEach(sub => {
+                    if (sub.type === "text") {
+                        subQuestionsHtml += `
+                            <div class="question-group">
+                                <label class="sub-q-title">${sub.title}</label>
+                                <input type="text" name="sub_${sub.id}" id="sub_${sub.id}" class="input-field" placeholder="${sub.placeholder}" style="margin-bottom:10px;">
+                            </div>
+                        `;
+                    } else if (sub.type === "number") {
+                        subQuestionsHtml += `
+                            <div class="question-group">
+                                <label class="sub-q-title">${sub.title}</label>
+                                <input type="number" name="sub_${sub.id}" id="sub_${sub.id}" min="${sub.min}" max="${sub.max}" class="input-field" placeholder="Điền số" style="width:120px; margin-bottom:10px;">
+                            </div>
+                        `;
+                    } else if (sub.type === "radio") {
+                        let subOpts = "";
+                        sub.options.forEach((so, idx) => {
+                            subOpts += `
+                                <div class="option-row sub-option">
+                                    <input type="radio" name="sub_${sub.id}" id="sub_${sub.id}_${idx}" value="${so}" style="cursor:pointer;">
+                                    <label for="sub_${sub.id}_${idx}" style="cursor:pointer; margin-right:15px;">${so}</label>
+                                </div>
+                            `;
+                        });
+                        subQuestionsHtml += `
+                            <div class="question-group">
+                                <label class="sub-q-title">${sub.title}</label>
+                                ${subOpts}
+                            </div>
+                        `;
+                    }
+                });
+
+                htmlContent += `
+                    <div class="question-card">
+                        <label class="question-title">${q.title}</label>
+                        ${optionsHtml}
+                        <div id="sub-box-${q.id}" class="sub-question-box" style="display:none; margin-left:20px; margin-top:10px;">
+                            ${subQuestionsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            area.innerHTML = htmlContent;
+        }
+
+        function handleRadioClick(qId, selectedValue, triggerValue) {
+            const subBox = document.getElementById(`sub-box-${qId}`);
+            const radioButton = document.getElementById(`q_${q.id}_${selectedValue}`);
+            if (radioButton) radioButton.checked = true;
+
+            if (!subBox) return;
+
+            if (selectedValue === triggerValue) {
+                subBox.style.display = "block";
+                subBox.querySelectorAll('input').forEach(input => input.required = true);
+            } else {
+                subBox.style.display = "none";
+                subBox.querySelectorAll('input').forEach(input => {
+                    input.required = false;
+                    if (input.type === 'radio') input.checked = false;
+                    else input.value = '';
+                });
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            generateSurvey();
+
+            document.getElementById("megaSurveyForm").addEventListener("submit", (e) => {
+                e.preventDefault();
+                const name = document.getElementById("username").value.trim();
+                let totalScore = 0;
+
+                surveyData.forEach(q => {
+                    const selectedOpt = document.querySelector(`input[name="q_${q.id}"]:checked`);
+                    if (selectedOpt) {
+                        totalScore += q.score;
+
+                        if (selectedOpt.value === q.triggerValue) {
+                            q.subQuestions.forEach(sub => {
+                                if (sub.type === 'radio') {
+                                    if (document.querySelector(`input[name="sub_${sub.id}"]:checked`)) {
+                                        totalScore += sub.score;
+                                    }
+                                } else {
+                                    const answer = document.getElementById(`sub_${sub.id}`).value.trim();
+                                    if (answer !== "") {
+                                        totalScore += sub.score;
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+
+                alert(`Chúc mừng [${name}]! Bạn đạt được tổng: ${totalScore} điểm thử thách.`);
+
+                fetch(GOOGLE_SHEET_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: [{ "Tên": name, "Điểm số": totalScore }] })
+                })
+                .then(res => res.json())
+                .then(() => alert("Hệ thống: Đã cập nhật kết quả khảo sát của bạn vào Google Sheets trực tuyến thành công!"))
+                .catch(err => console.error("Lỗi gửi dữ liệu Sheets:", err));
+            });
+        });
+    </script>
+</body>
+</html>
