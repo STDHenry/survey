@@ -26,10 +26,11 @@
     </div>
 
     <script>
-        // Địa chỉ kết nối Google Sheets qua SheetDB.io (Thay API ID của bạn vào đây khi triển khai)
-        const GOOGLE_SHEET_API = "https://docs.google.com/spreadsheets/d/1E8siWCDAAiuS-zsrYFhAVs7JFxGTnY9rNUW5idxGrzw/edit?gid=0#gid=0";
-
-        // MA TRẬN DỮ LIỆU TẬP TRUNG (Mỗi câu đúng = 20 điểm, đảo trộn 5 đáp án không nhãn)
+                // --- THÔNG TIN CẤU HÌNH KHO LƯU TRỮ GITHUB ---
+        const GITHUB_TOKEN = "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"; // Dán chuỗi mã Token dài bạn vừa tạo vào đây
+        const GITHUB_USER = "STDHenry"; // Gõ tên tài khoản GitHub (Username) của bạn
+        const GITHUB_REPO = "survey"; // Gõ tên kho chứa dự án (ví dụ: hack-survey hoặc what-the-bank)
+        const FILE_PATH = "results.json"; // Giữ nguyên tên file kết quả này
         const surveyData = [
             {
                 id: 1,
